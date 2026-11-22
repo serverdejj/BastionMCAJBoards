@@ -78,7 +78,7 @@ public final class BastionMCAJBoards extends JavaPlugin implements CommandExecut
             Location origin = boardLocation(type);
             if (origin == null) continue;
             origin.getChunk().load();
-            int total = Math.max(1, Math.min(30, getConfig().getInt("top-size", 10))) + 1;
+            int total = Math.max(1, Math.min(10, getConfig().getInt("top-size", 10))) + 1;
             double space = getConfig().getDouble("line-spacing", 0.29);
             List<TextDisplay> lines = new ArrayList<>();
             for (int n = 0; n < total; n++) {
