@@ -1,0 +1,28 @@
+# 20 ticks = 1 segundo. Atención: con miles de jugadores, actualizar los tops cada segundo consume CPU.
+refresh-ticks: 20
+top-size: 10
+# Separación vertical entre líneas del holograma, en bloques.
+line-spacing: 0.29
+# Escala de texto
+scale: 1.0
+# Los rankings de clanes se leen de clans.yml, que puede actualizarse con comandos
+# o desde una integración futura con BastionMCClans.
+formats:
+  kills:
+    title: '&#FF5555&l⚔ TOP KILLS'
+    line: '&e#{rank} &f{player} &8- &c{value} kills'
+  deaths:
+    title: '&#AA55FF&l☠ TOP MUERTES'
+    line: '&e#{rank} &f{player} &8- &d{value} muertes'
+  hours:
+    title: '&#55FFFF&l⌛ TOP HORAS JUGADAS'
+    line: '&e#{rank} &f{player} &8- &b{value} horas'
+  clans:
+    title: '&#FFAA00&l🛡 TOP CLANES'
+    line: '&e#{rank} &f{player} &8- &6{value} puntos'
+  money:
+    title: '&#55FF55&l$ TOP DINERO'
+    line: '&e#{rank} &f{player} &8- &a${value}'
+empty-line: '&7Todavía no hay datos'
+# Guarda automáticamente las posiciones usando /ajboards set <tipo>
+boards: {}

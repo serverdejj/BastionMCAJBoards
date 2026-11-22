@@ -1,0 +1,3 @@
+# Puntuaciones de clanes independientes mientras se integra la API de BastionMCClans.
+# También puedes gestionarlas con /ajboards clan set <nombre> <puntos>.
+clans: {}

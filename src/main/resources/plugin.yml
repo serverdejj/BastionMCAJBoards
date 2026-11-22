@@ -1,0 +1,14 @@
+name: BastionMCAJBoards
+version: 1.0.0
+main: mc.bastion.ajboards.BastionMCAJBoards
+api-version: '1.21'
+author: BASTION MC
+softdepend: [Vault, BastionMCClans]
+commands:
+  ajboards:
+    description: Administra hologramas de tops.
+    usage: /ajboards <set|remove|list|reload|refresh|clan>
+    permission: bastionajboards.admin
+permissions:
+  bastionajboards.admin:
+    default: op
