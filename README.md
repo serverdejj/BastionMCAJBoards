@@ -1,38 +1,21 @@
-# BastionMCAJBoards v1.0.3
+# BastionMCAJBoards v1.0.4 – BASTION MC
 
-Plugin para Purpur/Paper 1.21.11 (Java 21). Cinco TOPS con hologramas nativos TextDisplay y refresco de estadísticas cada 20 ticks (1 segundo por defecto). Todos los mensajes y títulos principales se pueden configurar en YAML, con `&` y `&#RRGGBB`.
+## Cambios
+- `/ajboards center <kills|deaths|hours|clans|money>`: centra las letras SIN mover el holograma.
+- `/ajboards fixed <tipo>`: deja de rotar hacia las cámaras; mantiene la posición y orienta el frente del texto hacia el jugador que ejecuta el comando.
+- `/ajboards follow <tipo>`: restaura el comportamiento de mirar al jugador.
+- Configuración individual por TOP: `boards.<tipo>.fixed`, `boards.<tipo>.facing-yaw` y `boards.<tipo>.text-alignment`.
+- Migración automática de **plantillas predeterminadas originales**: `horas` → `H`, `kills` → `🗡️`, `muertes` → `💀`. Los textos personalizados se respetan. Si tenías una plantilla personalizada y quieres esos símbolos, edita `formats.<tipo>.line` en `config.yml`.
+- Dinero compacto K y M, si el servidor tiene habilitada la sección `formats.money.number` (el JAR incluye valores predeterminados para config antiguos).
+- TOP máximo 10 y refresco a 20 ticks.
 
 ## Instalación
-Sube este proyecto a GitHub, abre Actions > Compilar BastionMCAJBoards > Run workflow. Descarga el artifact JAR e instálalo en plugins. Requiere Vault + un proveedor de economía para TOP dinero; sin economía mostrará lista vacía.
+1. Sube todo el contenido del ZIP a tu repositorio; reemplaza los archivos anteriores.
+2. Compila con GitHub Actions, descarga el artefacto JAR y colócalo en `plugins/`.
+3. **No borres `plugins/BastionMCAJBoards/config.yml`**: contiene las coordenadas.
+4. Reinicia el servidor y ejecuta `/ajboards reload` si cambias el YAML.
 
-## Comandos
-- `/ajboards set kills` (al estar parado debajo del centro deseado; crea el holograma a 2.6 bloques sobre ti)
-- `/ajboards set deaths`
-- `/ajboards set hours`
-- `/ajboards set clans`
-- `/ajboards set money`
-- `/ajboards center <tipo>` (centra el TOP en tu X/Z actual y conserva su altura)
-- `/ajboards remove <tipo>`
-- `/ajboards list`, `/ajboards reload`, `/ajboards refresh`
-- `/ajboards clan set <nombre> <puntos>`; `/ajboards clan remove <nombre>`
+## Nota
+`fixed` fija la orientación en el momento del comando, no hace que las líneas sean invisibles desde la parte trasera. Puedes ajustar el ángulo con `boards.<tipo>.facing-yaw` (grados) y `/ajboards reload`.
 
-## Consideraciones
-- TOP kills = jugadores asesinados, no mobs.
-- TOP deaths = estadísticas de muertes de Minecraft.
-- TOP hours = tiempo total de juego en horas.
-- TOP money = saldo Vault (requiere proveedor); solo jugadores conocidos en este servidor.
-- TOP clans = puntuaciones en `clans.yml`, **no se conecta automáticamente a BastionMCClans en esta versión**. Para enlazarlo correctamente es necesario conocer su API/datos y la métrica (kills, puntos, miembros, etc.).
-- Los hologramas se recalculan cada segundo, pero si otra fuente de datos persiste valores con retraso, no puede forzar dicha fuente a actualizarse.
-- Escanear miles de perfiles offline cada segundo puede causar lag: aumenta `refresh-ticks` (por ejemplo 100) si es necesario.
-- Los hologramas se recrean durante los reinicios del servidor, y se eliminan al descargar el plugin.
-
-## v1.0.2 - Formatos configurables
-Edita `plugins/BastionMCAJBoards/config.yml` para personalizar todos los titulos, lineas,
-simbolos, patrones decimales y los umbrales/sufijos K/M para dinero. Ejecuta `/ajboards reload`.
-Ejemplo: `20 H`, `20 🗡️`, `20 💀`, `$1.2K`, `$2.5M`.
-**No sustituyas tu config.yml actual con el ejemplo si ya has colocado los hologramas**:
-conserva la seccion `boards:` con sus coordenadas. Agrega/cambia `formats:` y
-`hologram:` manualmente si ya tenias config.
-
-## v1.0.3 - Centrar TOPS
-`/ajboards center <kills|deaths|hours|clans|money>`: colócate en el centro horizontal que deseas para el holograma y ejecuta el comando. Solo ajusta X y Z, no la altura Y, y guarda la ubicación en `config.yml`. Debes estar en el mismo mundo. La alineación del texto se configura con `hologram.text-alignment: CENTER` (`LEFT` / `CENTER` / `RIGHT`). También puedes ajustar `center-offset.x` y `center-offset.z` en bloques.
+Código fuente para Purpur 1.21.11 / Java 21. Se requiere verificar la compilación en GitHub Actions y probar en el servidor.

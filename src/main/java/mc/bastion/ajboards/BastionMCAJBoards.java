@@ -31,6 +31,7 @@ public final class BastionMCAJBoards extends JavaPlugin implements CommandExecut
 
     @Override public void onEnable() {
         saveDefaultConfig();
+        migrateLegacyFormats();
         clansFile = new File(getDataFolder(), "clans.yml");
         if (!clansFile.exists()) saveResource("clans.yml", false);
         clans = YamlConfiguration.loadConfiguration(clansFile);
@@ -43,6 +44,28 @@ public final class BastionMCAJBoards extends JavaPlugin implements CommandExecut
     @Override public void onDisable() {
         if (task != null) task.cancel();
         clearDisplays();
+    }
+
+    // Migra únicamente las plantillas predeterminadas antiguas, sin sobreescribir diseños propios.
+    private void migrateLegacyFormats() {
+        Map<String, String[]> replacements = Map.of(
+            "kills", new String[] {"&e#{rank} &f{player} &8- &c{value} kills", "&e#{rank} &f{player} &8- &c{value} 🗡️"},
+            "deaths", new String[] {"&e#{rank} &f{player} &8- &d{value} muertes", "&e#{rank} &f{player} &8- &d{value} 💀"},
+            "hours", new String[] {"&e#{rank} &f{player} &8- &b{value} horas", "&e#{rank} &f{player} &8- &b{value} H"}
+        );
+        boolean changed = false;
+        for (Map.Entry<String, String[]> e : replacements.entrySet()) {
+            String key = "formats." + e.getKey() + ".line";
+            String existing = getConfig().getString(key);
+            if (e.getValue()[0].equals(existing)) {
+                getConfig().set(key, e.getValue()[1]);
+                changed = true;
+            }
+        }
+        if (changed) {
+            saveConfig();
+            getLogger().info("Formatos predeterminados antiguos migrados a H, espada y calavera.");
+        }
     }
 
     private void hookEconomy() {
@@ -85,8 +108,10 @@ public final class BastionMCAJBoards extends JavaPlugin implements CommandExecut
             for (int n = 0; n < total; n++) {
                 Location at = origin.clone().subtract(0, n * space, 0);
                 TextDisplay display = origin.getWorld().spawn(at, TextDisplay.class, entity -> {
-                    entity.setBillboard(Display.Billboard.CENTER);
-                    String alignment = getConfig().getString("hologram.text-alignment", "CENTER");
+                    boolean fixed = getConfig().getBoolean("boards." + type + ".fixed", false);
+                    entity.setBillboard(fixed ? Display.Billboard.FIXED : Display.Billboard.CENTER);
+                    if (fixed) entity.setRotation((float) getConfig().getDouble("boards." + type + ".facing-yaw", 0.0), 0f);
+                    String alignment = getConfig().getString("boards." + type + ".text-alignment", getConfig().getString("hologram.text-alignment", "CENTER"));
                     try { entity.setAlignment(TextDisplay.TextAlignment.valueOf(alignment.toUpperCase(Locale.ROOT))); }
                     catch (IllegalArgumentException ignored) { entity.setAlignment(TextDisplay.TextAlignment.CENTER); }
                     entity.setPersistent(false);
@@ -209,10 +234,11 @@ public final class BastionMCAJBoards extends JavaPlugin implements CommandExecut
 
     @Override public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (!sender.hasPermission("bastionajboards.admin")) { message(sender, "&cSin permiso."); return true; }
-        if (args.length == 0) { message(sender, "&e/ajboards set <kills|deaths|hours|clans|money> &7| &e/ajboards center <tipo> &7| &e/ajboards remove <tipo> &7| &e/ajboards list &7| &e/ajboards reload &7| &e/ajboards clan set <nombre> <puntos>"); return true; }
+        if (args.length == 0) { message(sender, "&e/ajboards set <tipo> &7| &e/ajboards center <tipo> &7| &e/ajboards fixed <tipo> &7| &e/ajboards follow <tipo> &7| &e/ajboards remove <tipo> &7| &e/ajboards reload"); return true; }
         String action = args[0].toLowerCase(Locale.ROOT);
         if (action.equals("reload")) {
             reloadConfig();
+            migrateLegacyFormats();
             clans = YamlConfiguration.loadConfiguration(clansFile);
             loadBoards(); runUpdater();
             message(sender, "&aConfiguración y hologramas recargados."); return true;
@@ -236,20 +262,34 @@ public final class BastionMCAJBoards extends JavaPlugin implements CommandExecut
             try { clans.save(clansFile); } catch (IOException ex) { message(sender, "&cError al guardar."); return true; }
             updateAll(); message(sender, "&aClan eliminado de las puntuaciones."); return true;
         }
-        if (action.equals("center") && args.length >= 2) {
+        if ((action.equals("center") || action.equals("fixed") || action.equals("follow")) && args.length >= 2) {
             String type = args[1].toLowerCase(Locale.ROOT);
             if (!TYPES.contains(type)) { message(sender, "&cTOP no válido: " + type); return true; }
-            if (!(sender instanceof Player player)) { message(sender, "&cDebes ejecutar el comando dentro del juego."); return true; }
-            Location current = boardLocation(type);
-            if (current == null) { message(sender, "&cEse TOP no está colocado. Usa /ajboards set " + type); return true; }
-            if (!player.getWorld().equals(current.getWorld())) { message(sender, "&cDebes estar en el mismo mundo que el TOP."); return true; }
-            // Reubicar solo X/Z: la altura y el resto del diseño no cambian.
-            Location target = player.getLocation();
-            getConfig().set("boards." + type + ".x", target.getX() + getConfig().getDouble("center-offset.x", 0));
-            getConfig().set("boards." + type + ".z", target.getZ() + getConfig().getDouble("center-offset.z", 0));
-            saveConfig();
-            loadBoards();
-            message(sender, "&aTOP " + type + " centrado en tu posición horizontal. Se conservó su altura.");
+            if (boardLocation(type) == null) { message(sender, "&cEse TOP no está colocado. Usa /ajboards set " + type); return true; }
+            if (action.equals("center")) {
+                // No cambia X, Y ni Z. Solo centra el texto de cada entidad.
+                getConfig().set("boards." + type + ".text-alignment", "CENTER");
+                saveConfig(); loadBoards();
+                message(sender, "&aTexto del TOP " + type + " centrado sin mover el holograma.");
+                return true;
+            }
+            if (action.equals("fixed")) {
+                if (!(sender instanceof Player player)) { message(sender, "&cDebes mirar hacia el tablero dentro del juego."); return true; }
+                Location current = boardLocation(type);
+                if (!player.getWorld().equals(current.getWorld())) { message(sender, "&cDebes estar en el mundo del TOP."); return true; }
+                getConfig().set("boards." + type + ".fixed", true);
+                // El holograma queda orientado hacia el jugador en el momento del comando.
+                Location lookFrom = player.getEyeLocation();
+                org.bukkit.util.Vector delta = lookFrom.toVector().subtract(current.toVector());
+                float yaw = (float) Math.toDegrees(Math.atan2(-delta.getX(), delta.getZ()));
+                getConfig().set("boards." + type + ".facing-yaw", yaw);
+                saveConfig(); loadBoards();
+                message(sender, "&aTOP " + type + " estático y orientado hacia ti. Su posición no cambió.");
+                return true;
+            }
+            getConfig().set("boards." + type + ".fixed", false);
+            saveConfig(); loadBoards();
+            message(sender, "&aTOP " + type + " vuelve a mirar a cada jugador.");
             return true;
         }
         if ((action.equals("set") || action.equals("remove")) && args.length >= 2) {
@@ -272,8 +312,8 @@ public final class BastionMCAJBoards extends JavaPlugin implements CommandExecut
     @Override public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         if (!sender.hasPermission("bastionajboards.admin")) return List.of();
         List<String> options = List.of();
-        if (args.length == 1) options = List.of("set", "center", "remove", "list", "reload", "refresh", "clan");
-        if (args.length == 2) options = args[0].equalsIgnoreCase("clan") ? List.of("set", "remove") : (args[0].equalsIgnoreCase("set") || args[0].equalsIgnoreCase("center") || args[0].equalsIgnoreCase("remove")) ? TYPES : List.of();
+        if (args.length == 1) options = List.of("set", "center", "fixed", "follow", "remove", "list", "reload", "refresh", "clan");
+        if (args.length == 2) options = args[0].equalsIgnoreCase("clan") ? List.of("set", "remove") : (args[0].equalsIgnoreCase("set") || args[0].equalsIgnoreCase("center") || args[0].equalsIgnoreCase("fixed") || args[0].equalsIgnoreCase("follow") || args[0].equalsIgnoreCase("remove")) ? TYPES : List.of();
         if (args.length == 3 && args[0].equalsIgnoreCase("clan")) options = clans.getConfigurationSection("clans") == null ? List.of() : new ArrayList<>(clans.getConfigurationSection("clans").getKeys(false));
         String partial = args[args.length - 1].toLowerCase(Locale.ROOT);
         return options.stream().filter(s -> s.toLowerCase(Locale.ROOT).startsWith(partial)).toList();

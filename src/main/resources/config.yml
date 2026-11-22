@@ -1,4 +1,4 @@
-# BASTION MC - BastionMCAJBoards v1.0.3
+# BASTION MC - BastionMCAJBoards v1.0.4
 # Todo el texto visible y los estilos de los TOPS se pueden editar aqui.
 # Soporta & para formato legacy, &#RRGGBB para HEX.
 # Usa /ajboards reload tras guardar (no se borran las ubicaciones).
@@ -21,11 +21,11 @@ hologram:
 # El simbolo se escribe directamente en la plantilla (o lo cambias cuando quieras).
 # number.pattern: formato decimal para numeros normales.
 # dinero: >= 1000 muestra K, >= 1000000 muestra M.
-# /ajboards center <tipo> mueve el holograma a tu X/Z y mantiene la Y.
-# Ajustes horizontales opcionales al centrar (en bloques).
-center-offset:
-  x: 0.0
-  z: 0.0
+# /ajboards center <tipo> alinea el texto al CENTRO sin mover coordenadas.
+# /ajboards fixed <tipo> fija la orientación mirando hacia ti al ejecutarlo.
+# /ajboards follow <tipo> permite volver a orientar el holograma a cada cámara.
+# Se guarda por TOP en boards.<tipo>.fixed y boards.<tipo>.facing-yaw.
+# También puedes editar boards.<tipo>.text-alignment (LEFT, CENTER, RIGHT).
 
 formats:
   kills:
