@@ -15,6 +15,7 @@ import org.joml.Vector3f;
 import java.io.File;
 import java.io.IOException;
 import java.text.DecimalFormat;
+import java.text.DecimalFormatSymbols;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -85,11 +86,14 @@ public final class BastionMCAJBoards extends JavaPlugin implements CommandExecut
                 Location at = origin.clone().subtract(0, n * space, 0);
                 TextDisplay display = origin.getWorld().spawn(at, TextDisplay.class, entity -> {
                     entity.setBillboard(Display.Billboard.CENTER);
+                    String alignment = getConfig().getString("hologram.text-alignment", "CENTER");
+                    try { entity.setAlignment(TextDisplay.TextAlignment.valueOf(alignment.toUpperCase(Locale.ROOT))); }
+                    catch (IllegalArgumentException ignored) { entity.setAlignment(TextDisplay.TextAlignment.CENTER); }
                     entity.setPersistent(false);
-                    entity.setSeeThrough(true);
-                    entity.setShadowed(true);
-                    entity.setDefaultBackground(false);
-                    entity.setLineWidth(450);
+                    entity.setSeeThrough(getConfig().getBoolean("hologram.see-through", true));
+                    entity.setShadowed(getConfig().getBoolean("hologram.text-shadow", true));
+                    entity.setDefaultBackground(getConfig().getBoolean("hologram.default-background", false));
+                    entity.setLineWidth(Math.max(1, getConfig().getInt("hologram.line-width", 450)));
                     entity.addScoreboardTag("bastion-ajboards");
                     Transformation t = entity.getTransformation();
                     float scale = (float) Math.max(0.2, getConfig().getDouble("scale", 1.0));
@@ -145,13 +149,40 @@ public final class BastionMCAJBoards extends JavaPlugin implements CommandExecut
                 String value;
                 if (i - 1 < ranked.size()) {
                     Entry e = ranked.get(i - 1);
-                    String number = type.equals("hours") ? new DecimalFormat("#,##0.0").format(e.score())
-                        : type.equals("money") ? new DecimalFormat("#,##0.##").format(e.score())
-                        : new DecimalFormat("#,##0").format(e.score());
+                    String number = formatValue(type, e.score());
                     value = template.replace("{rank}", Integer.toString(i)).replace("{player}", e.name()).replace("{value}", number);
                 } else value = i == 1 ? getConfig().getString("empty-line", "&7Sin datos") : "";
                 putText(lines.get(i), value);
             }
+        }
+    }
+
+    // Formatos configurables, sin depender del locale del host.
+    private String formatValue(String type, double value) {
+        String base = "formats." + type + ".number";
+        if (type.equals("money") && getConfig().getBoolean(base + ".abbreviate", true)) {
+            double million = getConfig().getDouble(base + ".million-threshold", 1_000_000.0);
+            double thousand = getConfig().getDouble(base + ".thousand-threshold", 1_000.0);
+            double abs = Math.abs(value);
+            if (million > 0 && abs >= million) {
+                return decimal(value / million, getConfig().getString(base + ".compact-pattern", "0.#"))
+                    + getConfig().getString(base + ".million-suffix", "M");
+            }
+            if (thousand > 0 && abs >= thousand) {
+                return decimal(value / thousand, getConfig().getString(base + ".compact-pattern", "0.#"))
+                    + getConfig().getString(base + ".thousand-suffix", "K");
+            }
+        }
+        String defaultPattern = type.equals("hours") ? "#,##0.0" : type.equals("money") ? "#,##0.##" : "#,##0";
+        return decimal(value, getConfig().getString(base + ".pattern", defaultPattern));
+    }
+
+    private String decimal(double value, String pattern) {
+        try {
+            DecimalFormatSymbols symbols = DecimalFormatSymbols.getInstance(Locale.US);
+            return new DecimalFormat(pattern, symbols).format(value);
+        } catch (IllegalArgumentException ex) {
+            return new DecimalFormat("#,##0.##", DecimalFormatSymbols.getInstance(Locale.US)).format(value);
         }
     }
 
@@ -178,7 +209,7 @@ public final class BastionMCAJBoards extends JavaPlugin implements CommandExecut
 
     @Override public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (!sender.hasPermission("bastionajboards.admin")) { message(sender, "&cSin permiso."); return true; }
-        if (args.length == 0) { message(sender, "&e/ajboards set <kills|deaths|hours|clans|money> &7| &e/ajboards remove <tipo> &7| &e/ajboards list &7| &e/ajboards reload &7| &e/ajboards clan set <nombre> <puntos>"); return true; }
+        if (args.length == 0) { message(sender, "&e/ajboards set <kills|deaths|hours|clans|money> &7| &e/ajboards center <tipo> &7| &e/ajboards remove <tipo> &7| &e/ajboards list &7| &e/ajboards reload &7| &e/ajboards clan set <nombre> <puntos>"); return true; }
         String action = args[0].toLowerCase(Locale.ROOT);
         if (action.equals("reload")) {
             reloadConfig();
@@ -205,6 +236,22 @@ public final class BastionMCAJBoards extends JavaPlugin implements CommandExecut
             try { clans.save(clansFile); } catch (IOException ex) { message(sender, "&cError al guardar."); return true; }
             updateAll(); message(sender, "&aClan eliminado de las puntuaciones."); return true;
         }
+        if (action.equals("center") && args.length >= 2) {
+            String type = args[1].toLowerCase(Locale.ROOT);
+            if (!TYPES.contains(type)) { message(sender, "&cTOP no válido: " + type); return true; }
+            if (!(sender instanceof Player player)) { message(sender, "&cDebes ejecutar el comando dentro del juego."); return true; }
+            Location current = boardLocation(type);
+            if (current == null) { message(sender, "&cEse TOP no está colocado. Usa /ajboards set " + type); return true; }
+            if (!player.getWorld().equals(current.getWorld())) { message(sender, "&cDebes estar en el mismo mundo que el TOP."); return true; }
+            // Reubicar solo X/Z: la altura y el resto del diseño no cambian.
+            Location target = player.getLocation();
+            getConfig().set("boards." + type + ".x", target.getX() + getConfig().getDouble("center-offset.x", 0));
+            getConfig().set("boards." + type + ".z", target.getZ() + getConfig().getDouble("center-offset.z", 0));
+            saveConfig();
+            loadBoards();
+            message(sender, "&aTOP " + type + " centrado en tu posición horizontal. Se conservó su altura.");
+            return true;
+        }
         if ((action.equals("set") || action.equals("remove")) && args.length >= 2) {
             String type = args[1].toLowerCase(Locale.ROOT);
             if (!TYPES.contains(type)) { message(sender, "&cTipo no válido: " + type); return true; }
@@ -225,8 +272,8 @@ public final class BastionMCAJBoards extends JavaPlugin implements CommandExecut
     @Override public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         if (!sender.hasPermission("bastionajboards.admin")) return List.of();
         List<String> options = List.of();
-        if (args.length == 1) options = List.of("set", "remove", "list", "reload", "refresh", "clan");
-        if (args.length == 2) options = args[0].equalsIgnoreCase("clan") ? List.of("set", "remove") : (args[0].equalsIgnoreCase("set") || args[0].equalsIgnoreCase("remove")) ? TYPES : List.of();
+        if (args.length == 1) options = List.of("set", "center", "remove", "list", "reload", "refresh", "clan");
+        if (args.length == 2) options = args[0].equalsIgnoreCase("clan") ? List.of("set", "remove") : (args[0].equalsIgnoreCase("set") || args[0].equalsIgnoreCase("center") || args[0].equalsIgnoreCase("remove")) ? TYPES : List.of();
         if (args.length == 3 && args[0].equalsIgnoreCase("clan")) options = clans.getConfigurationSection("clans") == null ? List.of() : new ArrayList<>(clans.getConfigurationSection("clans").getKeys(false));
         String partial = args[args.length - 1].toLowerCase(Locale.ROOT);
         return options.stream().filter(s -> s.toLowerCase(Locale.ROOT).startsWith(partial)).toList();

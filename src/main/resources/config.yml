@@ -1,28 +1,66 @@
-# 20 ticks = 1 segundo. Atención: con miles de jugadores, actualizar los tops cada segundo consume CPU.
+# BASTION MC - BastionMCAJBoards v1.0.3
+# Todo el texto visible y los estilos de los TOPS se pueden editar aqui.
+# Soporta & para formato legacy, &#RRGGBB para HEX.
+# Usa /ajboards reload tras guardar (no se borran las ubicaciones).
+
+# 20 ticks equivalen a aproximadamente 1 segundo a 20 TPS.
 refresh-ticks: 20
+# Limite de puestos por TOP: maximo 10.
 top-size: 10
-# Separación vertical entre líneas del holograma, en bloques.
 line-spacing: 0.29
-# Escala de texto
 scale: 1.0
-# Los rankings de clanes se leen de clans.yml, que puede actualizarse con comandos
-# o desde una integración futura con BastionMCClans.
+hologram:
+  see-through: true
+  text-shadow: true
+  default-background: false
+  line-width: 450
+  # LEFT, CENTER o RIGHT: alineacion horizontal de todas las lineas.
+  text-alignment: CENTER
+
+# Placeholders de line: {rank}, {player}, {value}
+# El simbolo se escribe directamente en la plantilla (o lo cambias cuando quieras).
+# number.pattern: formato decimal para numeros normales.
+# dinero: >= 1000 muestra K, >= 1000000 muestra M.
+# /ajboards center <tipo> mueve el holograma a tu X/Z y mantiene la Y.
+# Ajustes horizontales opcionales al centrar (en bloques).
+center-offset:
+  x: 0.0
+  z: 0.0
+
 formats:
   kills:
     title: '&#FF5555&l⚔ TOP KILLS'
-    line: '&e#{rank} &f{player} &8- &c{value} kills'
+    line: '&e#{rank} &f{player} &8- &c{value} 🗡️'
+    number:
+      pattern: '#,##0'
   deaths:
     title: '&#AA55FF&l☠ TOP MUERTES'
-    line: '&e#{rank} &f{player} &8- &d{value} muertes'
+    line: '&e#{rank} &f{player} &8- &d{value} 💀'
+    number:
+      pattern: '#,##0'
   hours:
     title: '&#55FFFF&l⌛ TOP HORAS JUGADAS'
-    line: '&e#{rank} &f{player} &8- &b{value} horas'
+    line: '&e#{rank} &f{player} &8- &b{value} H'
+    number:
+      pattern: '#,##0.#'
   clans:
     title: '&#FFAA00&l🛡 TOP CLANES'
     line: '&e#{rank} &f{player} &8- &6{value} puntos'
+    number:
+      pattern: '#,##0'
   money:
     title: '&#55FF55&l$ TOP DINERO'
     line: '&e#{rank} &f{player} &8- &a${value}'
+    number:
+      abbreviate: true
+      thousand-threshold: 1000
+      million-threshold: 1000000
+      thousand-suffix: 'K'
+      million-suffix: 'M'
+      compact-pattern: '0.#'
+      pattern: '#,##0.##'
+
 empty-line: '&7Todavía no hay datos'
-# Guarda automáticamente las posiciones usando /ajboards set <tipo>
+# Ubicaciones guardadas automaticamente por /ajboards set <tipo>.
+# No borres las posiciones de tu config.yml existente al actualizar.
 boards: {}
